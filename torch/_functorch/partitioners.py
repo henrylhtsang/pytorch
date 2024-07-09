@@ -204,7 +204,7 @@ def _extract_graph_with_inputs_outputs(
             output_values.append(env[x])
         else:
             output_values.append(x)
-    new_graph.output(output_values)
+    new_graph.output(tuple(output_values))
 
     new_graph.eliminate_dead_code()
     new_graph.lint()
