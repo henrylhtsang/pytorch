@@ -1298,9 +1298,21 @@ class VariableBuilder:
         # it would have already been wrapped
         assert value not in self.tx.output.side_effects
 
+        is_static_input = get_static_address_type(value) is not None
+
+        if (
+            config.inline_inbuilt_nn_modules
+            and not is_static_input
+            and isinstance(value, torch.nn.Parameter)
+        ):
+            from ..decorators import mark_static_address
+
+            mark_static_address(value, guard=False)
+            is_static_input = True
+
         if (
             source.guard_source().is_nn_module()
-            or get_static_address_type(value) is not None
+            or (is_static_input and not config.inline_inbuilt_nn_modules)
         ) and not source.guard_source().is_fsdp_module():
             self.assert_not_wrapped_by_this_graph(value)
             return self.tx.output.register_attr_or_module(
@@ -1862,7 +1874,13 @@ def wrap_fx_proxy(
 # SOMETHING INTO THE GRAPH.  This is sort of obvious, because you can't call
 # this function without a proxy.
 def wrap_fx_proxy_cls(
-    target_cls, tx, proxy, example_value=None, subclass_type=None, **options
+    target_cls,
+    tx,
+    proxy,
+    example_value=None,
+    subclass_type=None,
+    is_static_input=False,
+    **options,
 ):
     from ..symbolic_convert import InstructionTranslatorBase
 
